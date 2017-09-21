@@ -1,7 +1,7 @@
 FROM akshayubhat/dva_cpu_base
 MAINTAINER Akshay Bhat <akshayubhat@gmail.com>
 RUN youtube-dl -U
-RUN git clone https://github.com/akshayubhat/DeepVideoAnalytics /root/DVA
+RUN git clone https://github.com/ai-face/DeepVideoAnalytics.git /root/DVA
 WORKDIR "/root/DVA"
 RUN pip install --upgrade cffi
 RUN pip install --no-deps keras

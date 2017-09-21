@@ -50,6 +50,7 @@
        - rabbit
      volumes:
        - dvadata:/root/DVA/dva/media
+       - /home/tom/ai/DeepVideoAnalytics.shared/models:/users/aub3/Dropbox/DeepVideoAnalytics/shared/
  volumes:
   dvapgdata:
   dvadata:
