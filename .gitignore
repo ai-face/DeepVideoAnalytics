@@ -88,3 +88,4 @@ notes/*.mov
 /aws/config.py
 /aws/host
 /aws/connect.sh
+*.pyc
