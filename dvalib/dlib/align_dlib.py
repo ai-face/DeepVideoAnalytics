@@ -86,6 +86,7 @@ class AlignDlib:
         """
         assert facePredictor is not None
 
+        print("facePredictor={}".format(facePredictor))
         self.detector = dlib.get_frontal_face_detector()
         self.predictor = dlib.shape_predictor(facePredictor)
 
@@ -174,7 +175,7 @@ class AlignDlib:
         if bb is None:
             bb = self.getLargestFaceBoundingBox(rgbImg, skipMulti)
             if bb is None:
-                return
+                return None
 
         if landmarks is None:
             landmarks = self.findLandmarks(rgbImg, bb)
