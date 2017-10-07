@@ -1,12 +1,12 @@
 from __future__ import absolute_import
-import subprocess, os, time, logging, requests, zipfile, io, sys, json
+import subprocess, os, time, logging, requests, zipfile, io, sys, json, tempfile
 from collections import defaultdict
 from PIL import Image
 from django.conf import settings
 from dva.celery import app
 from .models import Video, Frame, TEvent,  IndexEntries, LOPQCodes, Region, Tube, \
-    Retriever, Detector, Segment, QueryIndexVector, DeletedVideo, ManagementAction, Analyzer, SystemState, DVAPQL, \
-    Worker, QueryRegion, QueryRegionIndexVector, Indexer
+    Retriever, Segment, QueryIndexVector, DeletedVideo, ManagementAction, SystemState, DVAPQL, \
+    Worker, QueryRegion, QueryRegionIndexVector, DeepModel
 
 from .operations.indexing import IndexerTask
 from .operations.retrieval import RetrieverTask
@@ -225,6 +225,29 @@ def perform_video_decode(task_id):
     return task_id
 
 
+@app.task(track_started=True,name="perform_video_decode_lambda",ignore_result=False)
+def perform_video_decode_lambda(task_id):
+    start = TEvent.objects.get(pk=task_id)
+    if start.started:
+        return 0  # to handle celery bug with ACK in SOLO mode
+    else:
+        start.started = True
+        start.save()
+    args = start.arguments
+    video_id = start.video_id
+    dv = Video.objects.get(id=video_id)
+    kwargs = args.get('filters',{})
+    kwargs['video_id'] = video_id
+    v = VideoDecoder(dvideo=dv, media_dir=settings.MEDIA_ROOT)
+    for ds in Segment.objects.filter(**kwargs):
+        request_args = dict(ds=ds,denominator=args['rate'],rescale=args['rescale'])
+        # TODO : Implement this, call API gateway with video id, segment index and rate.
+        #        If successful bulk create frame objects using response sent by the lambda function.
+    process_next(task_id)
+    mark_as_completed(start)
+    raise NotImplementedError
+
+
 @app.task(track_started=True, name="perform_detection",base=DetectorTask)
 def perform_detection(task_id):
     """
@@ -245,11 +268,11 @@ def perform_detection(task_id):
     query_flow = (video_id is None) and (args['target'] == 'query')
     if 'detector_pk' in args:
         detector_pk = int(args['detector_pk'])
-        cd = Detector.objects.get(pk=detector_pk)
+        cd = DeepModel.objects.get(pk=detector_pk,model_type=DeepModel.DETECTOR)
         detector_name = cd.name
     else:
         detector_name = args['detector']
-        cd = Detector.objects.get(name=detector_name)
+        cd = DeepModel.objects.get(name=detector_name,model_type=DeepModel.DETECTOR)
         detector_pk = cd.pk
     perform_detection.load_detector(cd)
     detector = perform_detection.get_static_detectors[cd.pk]
@@ -328,7 +351,7 @@ def perform_analysis(task_id):
     args = start.arguments
     analyzer_name = args['analyzer']
     if analyzer_name not in perform_analysis._analyzers:
-        da = Analyzer.objects.get(name=analyzer_name)
+        da = DeepModel.objects.get(name=analyzer_name,model_type=DeepModel.ANALYZER)
         perform_analysis.load_analyzer(da)
     analyzer = perform_analysis.get_static_analyzers[analyzer_name]
     regions_batch = []
@@ -339,6 +362,8 @@ def perform_analysis(task_id):
         query_path = task_shared.download_and_get_query_path(start)
     if target == 'query_regions':
         query_regions_paths = task_shared.download_and_get_query_region_path(start, queryset)
+    image_data = {}
+    temp_root = tempfile.mkdtemp()
     for i,f in enumerate(queryset):
         if query_regions_paths:
             path = query_regions_paths[i]
@@ -369,12 +394,15 @@ def perform_analysis(task_id):
                 a.frame_id = f.frame.id
                 a.frame_index = f.frame_index
                 a.segment_index = f.segment_index
+                path = task_shared.crop_and_get_region_path(f,image_data,temp_root)
             elif target == 'frames':
                 a.full_frame = True
                 a.frame_index = f.frame_index
                 a.segment_index = f.segment_index
                 a.frame_id = f.id
-            path = f.path()
+                path = f.path()
+            else:
+                raise NotImplementedError
         object_name, text, metadata = analyzer.apply(path)
         a.region_type = Region.ANNOTATION
         a.object_name = object_name
@@ -433,7 +461,7 @@ def perform_detector_import(task_id):
         start.started = True
         start.save()
     args = start.arguments
-    dd = Detector.objects.get(pk=start.arguments['detector_pk'])
+    dd = DeepModel.objects.get(pk=start.arguments['detector_pk'],detector_type=DeepModel.DETECTOR)
     dd.create_directory(create_subdirs=False)
     if 'www.dropbox.com' in args['download_url'] and not args['download_url'].endswith('?dl=1'):
         r = requests.get(args['download_url'] + '?dl=1')
@@ -465,17 +493,8 @@ def perform_model_import(task_id):
         start.started = True
         start.save()
     args = start.arguments
-    if args['model_type'] == 'analyzer':
-        dm = Analyzer.objects.get(pk=args['pk'])
-        dirname = 'analyzers'
-    elif args['model_type'] == 'indexer':
-        dm = Indexer.objects.get(pk=args['pk'])
-        dirname = 'indexers'
-    elif args['model_type'] == 'detector':
-        dm = Detector.objects.get(pk=args['pk'])
-        dirname = 'detectors'
-    else:
-        raise NotImplementedError,args
+    dm = DeepModel.objects.get(pk=args['pk'])
+    dirname = 'models'
     task_shared.download_model(settings.MEDIA_ROOT,dirname, dm)
     process_next(task_id)
     mark_as_completed(start)

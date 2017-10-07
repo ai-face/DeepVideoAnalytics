@@ -105,9 +105,9 @@ class TEvent(models.Model):
     imported = models.BooleanField(default=False)
 
 
-class Indexer(models.Model):
+class DeepModel(models.Model):
     """
-    An indexer that can be used with any TF (eventually pytorch) network
+    A model Model
     """
     TENSORFLOW = 'T'
     CAFFE = 'C'
@@ -121,15 +121,71 @@ class Indexer(models.Model):
         (OPENCV, 'OpenCV'),
         (MXNET, 'MXNet'),
     )
+    INDEXER = 'I'
+    DETECTOR = 'D'
+    ANALYZER = 'A'
+    SEGMENTER = 'S'
+    MTYPE = (
+        (INDEXER, 'Indexer'),
+        (DETECTOR, 'Detector'),
+        (ANALYZER, 'Analyzer'),
+        (SEGMENTER, 'Segmenter'),
+    )
+    YOLO = "Y"
+    TFD = "T"
+    DETECTOR_TYPES = (
+        (TFD, 'Tensorflow'),
+        (YOLO, 'YOLO V2'),
+    )
+    detector_type = models.CharField(max_length=1,choices=DETECTOR_TYPES,db_index=True,null=True)
     mode = models.CharField(max_length=1,choices=MODES,db_index=True,default=TENSORFLOW)
+    model_type = models.CharField(max_length=1,choices=MTYPE,db_index=True,default=INDEXER)
     name = models.CharField(max_length=100)
     algorithm = models.CharField(max_length=100,default="")
     shasum = models.CharField(max_length=40,null=True,unique=True)
-    model_filename = models.CharField(max_length=200,default="")
+    model_filename = models.CharField(max_length=200,default="",null=True)
     input_layer_name = models.CharField(max_length=300,default="")
     embedding_layer_name = models.CharField(max_length=300,default="")
     embedding_layer_size = models.CharField(max_length=300,default="")
     created = models.DateTimeField('date created', auto_now_add=True)
+    arguments = models.TextField(default="")
+    phase_1_log = models.TextField(default="")
+    phase_2_log = models.TextField(default="")
+    class_distribution = models.TextField(default="")
+    class_names = models.TextField(default="")
+    frames_count = models.IntegerField(default=0)
+    boxes_count = models.IntegerField(default=0)
+    source = models.ForeignKey(TEvent, null=True)
+    trained = models.BooleanField(default=False)
+    class_index_to_string = JSONField(null=True,blank=True)
+    url = models.CharField(max_length=200,default="")
+    additional_files = JSONField(null=True,blank=True)
+    produces_labels = models.BooleanField(default=False)
+    produces_json = models.BooleanField(default=False)
+    produces_text = models.BooleanField(default=False)
+
+    def create_directory(self,create_subdirs=True):
+        try:
+            os.mkdir('{}/models/{}'.format(settings.MEDIA_ROOT, self.pk))
+        except:
+            pass
+
+    def get_model_path(self,root_dir=None):
+        if root_dir is None:
+            root_dir = settings.MEDIA_ROOT
+        return "{}/models/{}/{}".format(root_dir,self.pk,self.model_filename)
+
+    def get_yolo_args(self):
+        model_dir = "{}/models/{}/".format(settings.MEDIA_ROOT, self.pk)
+        class_names = {k: v for k, v in json.loads(self.class_names)}
+        args = {'root_dir': model_dir,
+                'detector_pk': self.pk,
+                'class_names':{i: k for k, i in class_names.items()}
+                }
+        return args
+
+    def get_class_dist(self):
+        return json.loads(self.class_distribution) if self.class_distribution.strip() else {}
 
 
 class Retriever(models.Model):
@@ -166,93 +222,6 @@ class Retriever(models.Model):
 
     def proto_filename(self):
         return "{}/{}.proto".format(self.path(), self.pk)
-
-
-class Analyzer(models.Model):
-    """
-    """
-    TENSORFLOW = 'T'
-    CAFFE = 'C'
-    PYTORCH = 'P'
-    OPENCV = 'O'
-    MXNET = 'M'
-    MODES = (
-        (TENSORFLOW, 'Tensorflow'),
-        (CAFFE, 'Caffe'),
-        (PYTORCH, 'Pytorch'),
-        (OPENCV, 'OpenCV'),
-        (MXNET, 'MXNet'),
-    )
-    mode = models.CharField(max_length=1,choices=MODES,db_index=True,default=TENSORFLOW)
-    name = models.CharField(max_length=100)
-    algorithm = models.CharField(max_length=100,default="")
-    url = models.CharField(max_length=200,default="")
-    model_filename = models.CharField(max_length=200,default="")
-    additional_files = JSONField(null=True,blank=True)
-    produces_labels = models.BooleanField(default=False)
-    produces_json = models.BooleanField(default=False)
-    produces_text = models.BooleanField(default=False)
-    created = models.DateTimeField('date created', auto_now_add=True)
-
-
-class Detector(models.Model):
-    TENSORFLOW = 'T'
-    CAFFE = 'C'
-    PYTORCH = 'P'
-    OPENCV = 'O'
-    YOLO = 'Y'
-    TFD = 'T'
-    MXNET = 'M'
-    MODES = (
-        (TENSORFLOW, 'Tensorflow'),
-        (CAFFE, 'Caffe'),
-        (PYTORCH, 'Pytorch'),
-        (OPENCV, 'OpenCV'),
-        (MXNET, 'MXNet'),
-    )
-    DETECTOR_TYPES = (
-        (TFD, 'Tensorflow'),
-        (YOLO, 'YOLO V2'),
-    )
-    mode = models.CharField(max_length=1,choices=MODES,db_index=True,default=TENSORFLOW)
-    detector_type = models.CharField(max_length=1,choices=DETECTOR_TYPES,db_index=True,null=True)
-    name = models.CharField(max_length=100)
-    algorithm = models.CharField(max_length=100,default="")
-    model_filename = models.CharField(max_length=200,null=True)
-    arguments = models.TextField(default="")
-    phase_1_log = models.TextField(default="")
-    phase_2_log = models.TextField(default="")
-    class_distribution = models.TextField(default="")
-    class_names = models.TextField(default="")
-    frames_count = models.IntegerField(default=0)
-    boxes_count = models.IntegerField(default=0)
-    source = models.ForeignKey(TEvent, null=True)
-    trained = models.BooleanField(default=False)
-    created = models.DateTimeField('date created', auto_now_add=True)
-    class_index_to_string = JSONField(null=True,blank=True)
-
-    def create_directory(self,create_subdirs=True):
-        try:
-            os.mkdir('{}/detectors/{}'.format(settings.MEDIA_ROOT, self.pk))
-        except:
-            pass
-
-    def get_model_path(self,root_dir=None):
-        if root_dir is None:
-            root_dir = settings.MEDIA_ROOT
-        return "{}/detectors/{}/{}".format(root_dir,self.pk,self.model_filename)
-
-    def get_yolo_args(self):
-        model_dir = "{}/detectors/{}/".format(settings.MEDIA_ROOT, self.pk)
-        class_names = {k: v for k, v in json.loads(self.class_names)}
-        args = {'root_dir': model_dir,
-                'detector_pk': self.pk,
-                'class_names':{i: k for k, i in class_names.items()}
-                }
-        return args
-
-    def get_class_dist(self):
-        return json.loads(self.class_distribution) if self.class_distribution.strip() else {}
 
 
 class QueryIndexVector(models.Model):
@@ -369,8 +338,10 @@ class Region(models.Model):
             self.segment_index = self.frame.segment_index
         super(Region, self).save(*args, **kwargs)
 
-    def path(self,media_root=None):
-        if media_root:
+    def path(self,media_root=None,temp_root=None):
+        if temp_root:
+            return "{}/{}_{}.jpg".format(temp_root, self.video_id, self.pk)
+        elif media_root:
             return "{}/{}/regions/{}.jpg".format(media_root, self.video_id, self.pk)
         else:
             return "{}/{}/regions/{}.jpg".format(settings.MEDIA_ROOT, self.video_id, self.pk)
@@ -459,7 +430,7 @@ class IndexEntries(models.Model):
     features_file_name = models.CharField(max_length=100)
     entries_file_name = models.CharField(max_length=100)
     algorithm = models.CharField(max_length=100)
-    indexer = models.ForeignKey(Indexer, null=True)
+    indexer = models.ForeignKey(DeepModel, null=True)
     indexer_shasum = models.CharField(max_length=40)
     detection_name = models.CharField(max_length=100)
     count = models.IntegerField()

@@ -85,7 +85,17 @@ notes/*.mov
 /dvalib/crfasrnn/crfrnn_keras_model.h5
 /dvalib/crfasrnn/cpp/high_dim_filter.so
 /celerybeat.pid
+<<<<<<< HEAD
 /aws/config.py
 /aws/host
 /aws/connect.sh
 *.pyc
+=======
+/cloud/config.py
+/cloud/ecs/instance_config_private.json
+/cloud/host
+/cloud/connect.sh
+/cloud/heroku.env
+>>>>>>> origin/master
+/.vscode/
+/.ipynb_checkpoints/
