@@ -86,6 +86,7 @@ notes/*.mov
 /dvalib/crfasrnn/cpp/high_dim_filter.so
 /celerybeat.pid
 <<<<<<< HEAD
+<<<<<<< HEAD
 /aws/config.py
 /aws/host
 /aws/connect.sh
@@ -99,3 +100,9 @@ notes/*.mov
 >>>>>>> origin/master
 /.vscode/
 /.ipynb_checkpoints/
+=======
+/deploy/cloud/config.py
+/deploy/cloud/host
+/deploy/cloud/connect.sh
+/deploy/cloud/heroku.env
+>>>>>>> origin/master
