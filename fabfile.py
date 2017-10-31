@@ -514,6 +514,7 @@ def download_model(root_dir, model_type_dir_name, model_dir_name, model_json):
     model_dir = "{}/{}/{}".format(root_dir, model_type_dir_name, model_dir_name)
     with lcd(model_type_dir):
         if not os.path.isdir(model_dir):
+<<<<<<< HEAD
             try:
                 os.mkdir(model_dir)
             except:
@@ -531,6 +532,22 @@ def download_model(root_dir, model_type_dir_name, model_dir_name, model_json):
                             local("cd {} && cp /users/aub3/shared/{} .".format(model_dir_name,filename))
                         else:
                             local("cd {} && wget --quiet {}".format(model_dir_name, url))
+=======
+            os.mkdir(model_dir)
+            #if sys.platform == 'darwin':
+            local("cd {} && cp /home/tom/ai/DeepVideoAnalytics.shared/models/{} .".format(model_dir_name, filename))
+            #else:
+            #    local("cd {} && wget --quiet {}".format(model_dir_name, url))
+            if 'additional_files' in model_json:
+                for m in model_json["additional_files"]:
+                    url = m['url']
+                    filename = m['filename']
+                    #if sys.platform == 'darwin':
+                    local("cd {} && cp /home/tom/ai/DeepVideoAnalytics.shared/models/{} .".format(model_dir_name,
+                                                                                                      filename))
+                    #else:
+                    #    local("cd {} && wget --quiet {}".format(model_dir_name, url))
+>>>>>>> github/master
 
 
 @task

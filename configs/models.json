@@ -96,7 +96,7 @@
     "url": "https://www.dropbox.com/s/yyj53aet2emhvs7/ctpn_trained_model.caffemodel",
     "filename": "ctpn_trained_model.caffemodel",
     "additional_files":[
-      {"url": "https://www.dropbox.com/s/1fcgzui32wrtlvd/ctpn_trained_model.prototxt",
+      {"url": "https://raw.githubusercontent.com/tianzhi0549/CTPN/master/models/deploy.prototxt",
       "filename": "ctpn_trained_model.prototxt"}
     ],
     "algorithm": "CTPN",
