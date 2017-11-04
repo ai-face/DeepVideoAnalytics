@@ -58,6 +58,34 @@ class BaseRetriever(object):
 
 class LOPQRetriever(BaseRetriever):
 
+    @classmethod
+    def create(cls, name, data, entries, components, m, v, sub, proto_filename, test_mode=False):
+        '''
+        :param name:
+        :param data:  dim==2,
+        :param entries:
+        :param components:
+        :param m:
+        :param v:
+        :param sub:
+        :param proto_filename:
+        :param test_mode:
+        :return:
+        '''
+        args = {}
+        args["m"] = m
+        args["v"] = v
+        args["components"] = components
+        args["sub"] = sub
+        args["proto_filename"] = proto_filename
+        args["test_mode"] = test_mode
+        retriever = LOPQRetriever(name, args)
+        assert data.ndim == 2
+        assert data.shape[0] == len(entries)
+        retriever.data = data
+        retriever.entries = entries
+        return retriever
+
     def __init__(self,name,args):
         data = []
         self.name = name
@@ -82,22 +110,55 @@ class LOPQRetriever(BaseRetriever):
             else:
                 self.data = data[0]
             logging.info(self.data.shape)
-        self.test_mode = args.get('test_mode',False)
-        self.n_components = int(args['components'])
-        self.m = int(args['m'])
-        self.v = int(args['v'])
-        self.sub = int(args['sub'])
+
+        self.initme(
+            int(args['components']),
+            int(args['v']),
+            int(args['m']),
+            int(args['sub']),
+            args['proto_filename'],
+            args.get("test_mode", False)
+        )
+
+        #self.test_mode = args.get('test_mode',False)
+        #self.n_components = int(args['components'])
+        #self.m = int(args['m'])
+        #self.v = int(args['v'])
+        #self.sub = int(args['sub'])
+        # self.model = None
+        # self.searcher = None
+        # self.pca_reduction = None
+        # self.P = None
+        # self.mu = None
+        #self.model_proto_filename = args['proto_filename']
+        #self.P_filename = args['proto_filename'].replace('.proto','.P.npy')
+        #self.mu_filename = args['proto_filename'].replace('.proto','.mu.npy')
+        #self.pca_filename = args['proto_filename'].replace('.proto', '.pca.pkl')
+        #self.model_lmdb_filename = args['proto_filename'].replace('.proto', '_lmdb')
+        #self.permuted_inds_filename = args['proto_filename'].replace('.proto', '.permuted_inds.pkl')
+        #self.permuted_inds = None
+
+
+    def initme(self, components,  v, m, sub, proto_filename, test_mode=False):
+        self.test_mode = test_mode
+        self.n_components = components
+        self.m = m
+        self.v = v
+        self.sub = sub
+        self.model_proto_filename = proto_filename
+        if not proto_filename.endswith(".proto"):
+            self.model_proto_filename+=".proto"
+        self.P_filename = self.model_proto_filename.replace('.proto','.P.npy')
+        self.mu_filename = self.model_proto_filename.replace('.proto','.mu.npy')
+        self.pca_filename = self.model_proto_filename.replace('.proto', '.pca.pkl')
+        self.model_lmdb_filename = self.model_proto_filename.replace('.proto', '_lmdb')
+        self.permuted_inds_filename = self.model_proto_filename.replace('.proto', '.permuted_inds.pkl')
+
         self.model = None
         self.searcher = None
         self.pca_reduction = None
         self.P = None
         self.mu = None
-        self.model_proto_filename = args['proto_filename']
-        self.P_filename = args['proto_filename'].replace('.proto','.P.npy')
-        self.mu_filename = args['proto_filename'].replace('.proto','.mu.npy')
-        self.pca_filename = args['proto_filename'].replace('.proto', '.pca.pkl')
-        self.model_lmdb_filename = args['proto_filename'].replace('.proto', '_lmdb')
-        self.permuted_inds_filename = args['proto_filename'].replace('.proto', '.permuted_inds.pkl')
         self.permuted_inds = None
 
     def pca(self):
@@ -144,7 +205,8 @@ class LOPQRetriever(BaseRetriever):
     def find(self):
         i,selected = random.choice([k for k in enumerate(self.entries)])
         print selected
-        for k in self.searcher.get_result_quota(self.data[i],10):
+        ks = self.searcher.get_result_quota(self.data[i],10)
+        for k in ks:
             print k
 
     def save(self):

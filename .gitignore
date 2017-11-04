@@ -85,14 +85,17 @@ creds.json
 /dvalib/crfasrnn/crfrnn_keras_model.h5
 /dvalib/crfasrnn/cpp/high_dim_filter.so
 /celerybeat.pid
-<<<<<<< HEAD
-/deploy/cloud/config.py
-/deploy/cloud/host
-/deploy/cloud/connect.sh
-/deploy/cloud/heroku.env
-=======
 /aws/config.py
 /aws/host
 /aws/connect.sh
 *.pyc
->>>>>>> github/master
+/cloud/config.py
+/cloud/ecs/instance_config_private.json
+/cloud/host
+/cloud/connect.sh
+/cloud/heroku.env
+/.vscode/
+/deploy/cloud/config.py
+/deploy/cloud/host
+/deploy/cloud/connect.sh
+/deploy/cloud/heroku.env
