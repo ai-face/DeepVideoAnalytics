@@ -203,6 +203,12 @@ class QueryResultsExportSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class TaskExportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TEvent
+        fields = '__all__'
+
+
 class QueryRegionResultsExportSerializer(serializers.ModelSerializer):
     class Meta:
         model = QueryRegionResults
@@ -272,11 +278,12 @@ class QueryRegionExportSerializer(serializers.ModelSerializer):
 class DVAPQLSerializer(serializers.HyperlinkedModelSerializer):
     query_regions = QueryRegionExportSerializer(source='queryregion_set', read_only=True, many=True)
     query_results = QueryResultsExportSerializer(source='queryresults_set', read_only=True, many=True)
+    tasks = TaskExportSerializer(source='tevent_set', read_only=True, many=True)
 
     class Meta:
         model = DVAPQL
-        fields =('process_type', 'created', 'user', 'image_data', 'script',
-                 'results_metadata', 'results_available', 'completed','query_regions','query_results')
+        fields =('process_type', 'created', 'user', 'image_data', 'script','tasks',
+                 'results_metadata', 'results_available', 'completed','query_regions','query_results','id')
 
 
 class VideoExportSerializer(serializers.ModelSerializer):
@@ -343,16 +350,6 @@ def create_event(e, v):
     return de
 
 
-def create_segment(s, v):
-    ds = Segment()
-    ds.video_id = v.pk
-    ds.segment_index = s.get('segment_index', '-1')
-    ds.start_time = s.get('start_time', 0)
-    ds.end_time = s.get('end_time', 0)
-    ds.metadata = s.get('metadata', "")
-    ds.frame_count = s.get('frame_count', 0)
-    ds.start_index = s.get('start_index', 0)
-    return ds
 
 
 class VideoImporter(object):
@@ -475,10 +472,23 @@ class VideoImporter(object):
         segments = []
         for s in self.json.get('segment_list', []):
             old_ids.append(s['id'])
-            segments.append(create_segment(s, self.video))
+            segments.append(self.create_segment(s))
         segment_ids = Segment.objects.bulk_create(segments, 1000)
         for i, k in enumerate(segment_ids):
             self.segment_to_pk[old_ids[i]] = k.id
+
+    def create_segment(self,s):
+        ds = Segment()
+        ds.video_id = self.video.pk
+        ds.segment_index = s.get('segment_index', '-1')
+        ds.start_time = s.get('start_time', 0)
+        ds.end_time = s.get('end_time', 0)
+        ds.metadata = s.get('metadata', "")
+        if s.get('event', None):
+            ds.event_id = self.event_to_pk[s['event']]
+        ds.frame_count = s.get('frame_count', 0)
+        ds.start_index = s.get('start_index', 0)
+        return ds
 
     def import_events(self):
         old_ids = []
@@ -646,6 +656,8 @@ class VideoImporter(object):
         df.h = f.get('h', 0)
         df.w = f.get('w', 0)
         df.t = f.get('t', 0)
+        if f.get('event', None):
+            df.event_id = self.event_to_pk[f['event']]
         df.segment_index = f.get('segment_index', 0)
         df.keyframe = f.get('keyframe', False)
         return df

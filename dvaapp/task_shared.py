@@ -1,10 +1,10 @@
 import os, json, requests, copy, time, subprocess, logging, shutil, zipfile, boto3, random, calendar, shlex, sys, tempfile
-from models import Video, QueryRegion, QueryRegionIndexVector
+from models import Video, QueryRegion, QueryRegionIndexVector, DVAPQL, Region, Frame, Segment, IndexEntries
 from django.conf import settings
 from PIL import Image
-from models import DVAPQL,Region,Frame
 from . import serializers
 from botocore.exceptions import ClientError
+from .fs import ensure,upload_file_to_remote
 
 
 def handle_downloaded_file(downloaded, video, name):
@@ -275,9 +275,10 @@ def build_queryset(args,video_id=None,query_id=None):
         queryset = QueryRegion.objects.all().filter(**kwargs)
     elif target == 'query_region_index_vectors':
         queryset = QueryRegionIndexVector.objects.all().filter(**kwargs)
+    elif target == 'segments':
+        queryset = Segment.objects.filter(**kwargs)
     else:
-        queryset = None
-        raise ValueError
+        raise ValueError("target {} not found".format(target))
     return queryset,target
 
 
@@ -346,8 +347,8 @@ def download_model(root_dir, model_type_dir_name, dm):
     model_dir = "{}/{}/{}".format(root_dir, model_type_dir_name, dm.pk)
     if not os.path.isdir(model_dir):
         os.mkdir(model_dir)
-        if sys.platform == 'darwin':
-            p = subprocess.Popen(['cp','/users/aub3/Dropbox/DeepVideoAnalytics/shared/{}'.format(dm.model_filename),'.'],cwd=model_dir)
+        if settings.DEV_ENV:
+            p = subprocess.Popen(['cp','/users/aub3/shared/{}'.format(dm.model_filename),'.'],cwd=model_dir)
             p.wait()
         else:
             p = subprocess.Popen(['wget','--quiet',dm.url],cwd=model_dir)
@@ -356,9 +357,8 @@ def download_model(root_dir, model_type_dir_name, dm):
             for m in dm.additional_files:
                 url = m['url']
                 filename = m['filename']
-                if sys.platform == 'darwin':
-                    p = subprocess.Popen(
-                        ['cp', '/users/aub3/Dropbox/DeepVideoAnalytics/shared/{}'.format(filename), '.'],cwd=model_dir)
+                if settings.DEV_ENV:
+                    p = subprocess.Popen(['cp', '/users/aub3/shared/{}'.format(filename), '.'],cwd=model_dir)
                     p.wait()
                 else:
                     p = subprocess.Popen(['wget', '--quiet', url], cwd=model_dir)
@@ -376,3 +376,80 @@ def crop_and_get_region_path(df,images,temp_root):
     else:
         return df.path()
     return region_path
+
+
+def get_sync_paths(dirname,task_id):
+    if dirname == 'indexes':
+        f = [k.entries_path(media_root="") for k in IndexEntries.objects.filter(event_id=task_id)]
+        f += [k.npy_path(media_root="") for k in IndexEntries.objects.filter(event_id=task_id)]
+    elif dirname == 'frames':
+        f = [k.path(media_root="") for k in Frame.objects.filter(event_id=task_id)]
+    elif dirname == 'segments':
+        f = []
+        for k in Segment.objects.filter(event_id=task_id):
+            f.append(k.path(media_root=""))
+            f.append(k.framelist_path(media_root=""))
+    elif dirname == 'regions':
+        f = [k.path(media_root="") for k in Region.objects.filter(event_id=task_id) if k.materialized]
+    else:
+        raise NotImplementedError,"dirname : {} not configured".format(dirname)
+    return f
+
+def upload(dirname,event_id,video_id):
+    if dirname:
+        fnames = get_sync_paths(dirname, event_id)
+        logging.info("Syncing {} containing {} files".format(dirname, len(fnames)))
+        for fp in fnames:
+            upload_file_to_remote(fp)
+    else:
+        logging.info("Syncing entire directory for {}".format(video_id))
+        src = '{}/{}/'.format(settings.MEDIA_ROOT, video_id)
+        dest = 's3://{}/{}/'.format(settings.MEDIA_BUCKET, video_id)
+        command = " ".join(['aws', 's3', 'sync', '--quiet', src, dest])
+        syncer = subprocess.Popen(['aws', 's3', 'sync', '--quiet', '--size-only', src, dest])
+        syncer.wait()
+        if syncer.returncode != 0:
+            raise ValueError,"Error while executing : {}".format(command)
+
+
+def ensure_files(queryset, target):
+    dirnames = {}
+    if target == 'frames':
+        for k in queryset:
+            ensure(k.path(media_root=''),dirnames)
+    elif target == 'regions':
+        for k in queryset:
+            if k.materialized:
+                ensure(k.path(media_root=''), dirnames)
+            else:
+                ensure(k.frame_path(media_root=''), dirnames)
+    elif target == 'segments':
+        for k in queryset:
+            ensure(k.path(media_root=''),dirnames)
+            ensure(k.framelist_path(media_root=''), dirnames)
+    elif target == 'indexes':
+        for k in queryset:
+            ensure(k.npy_path(media_root=''), dirnames)
+            ensure(k.entries_path(media_root=''), dirnames)
+    else:
+        raise NotImplementedError
+
+def import_regions_json(regions_json,video_id,event_id):
+    fname_to_pk = { df.name : df.pk for df in Frame.objects.filter(video_id=video_id)}
+    regions = []
+    for k in regions_json:
+        if k['target'] == 'filename':
+            r = Region()
+            r.frame_id = fname_to_pk[k['filename']]
+            r.video_id = video_id
+            r.event_id = event_id
+            r.x = k['x']
+            r.y = k['y']
+            r.w = k['w']
+            r.h = k['h']
+            r.metadata = k['metadata']
+            r.text = k['text']
+        else:
+            raise ValueError
+    Region.objects.bulk_create(regions,1000)
+    raise NotImplementedError

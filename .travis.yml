@@ -31,9 +31,9 @@ env:
     - LAUNCH_Q_qclusterer=1
 
 before_install:
-  - sudo add-apt-repository ppa:mc3man/trusty-media -y
   - sudo apt-get -qq update
-  - sudo apt-get -qq install -y --allow-unauthenticated ffmpeg
+  - wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-64bit-static.tar.xz && tar xvfJ ffmpeg-release-64bit-static.tar.xz
+  - sudo mv ffmpeg*/* /bin/
   - sudo apt-get -qq install -y pkg-config python-dev unzip swig3.0 libopencv-dev libhdf5-dev python-pip libav-tools libjpeg-dev  libpng-dev  libtiff-dev  libjasper-dev  python-numpy python-scipy  python-pycurl  python-opencv
   - sudo dpkg -L python-opencv
   - sudo wget --quiet https://yt-dl.org/downloads/latest/youtube-dl -O /bin/youtube-dl
@@ -52,7 +52,7 @@ before_script:
   - cd repos/lopq/python && python setup.py install && cd ../../..
   - python manage.py migrate
   - python manage.py runserver 8000 &
-  - cd tests && wget --quiet https://www.dropbox.com/s/xwbk5g1qit5s9em/WorldIsNotEnough.mp4 && cd ..
+  - cd tests/ci && wget --quiet https://www.dropbox.com/s/t4bgkh2w2ow8o10/WorldIsNotEnough.mp4 && cd ../..
   - cd dvalib/crfasrnn/cpp && ./compile.sh && cd ../../..
   - "export DISPLAY=:99.0"
   - "sh -e /etc/init.d/xvfb start"

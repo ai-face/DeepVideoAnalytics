@@ -93,7 +93,7 @@ def clean():
     django.setup()
     from django.conf import settings
     from dvaapp import queuing
-    if sys.platform == 'darwin':
+    if settings.DEV_ENV:
         for qname in set(queuing.TASK_NAMES_TO_QUEUE.values()):
             try:
                 local('rabbitmqadmin purge queue name={}'.format(qname))
@@ -106,7 +106,7 @@ def clean():
     migrate()
     local("rm -rf {}/*".format(settings.MEDIA_ROOT))
     local("mkdir {}/queries".format(settings.MEDIA_ROOT))
-    if sys.platform == 'darwin':
+    if settings.DEV_ENV:
         local("rm logs/*.log")
         try:
             local("ps auxww | grep 'celery -A dva' | awk '{print $2}' | xargs kill -9")
@@ -115,7 +115,7 @@ def clean():
     init_fs()
     init_server()
     init_models()
-    if sys.platform == 'darwin':
+    if settings.DEV_ENV:
         superu()
 
 
@@ -161,12 +161,8 @@ def ci():
         name = fname.split('/')[-1].split('.')[0]
         f = SimpleUploadedFile(fname, file(fname).read(), content_type="video/mp4")
         handle_uploaded_file(f, name, False)
-    if sys.platform != 'darwin':
-        for fname in glob.glob('tests/*.mp4'):
-            name = fname.split('/')[-1].split('.')[0]
-            f = SimpleUploadedFile(fname, file(fname).read(), content_type="video/mp4")
-            handle_uploaded_file(f, name, False)
-        for fname in glob.glob('tests/*.zip'):
+    if settings.DEV_ENV:
+        for fname in glob.glob('tests/ci/*.zip'):
             name = fname.split('/')[-1].split('.')[0]
             f = SimpleUploadedFile(fname, file(fname).read(), content_type="application/zip")
             handle_uploaded_file(f, name)
@@ -179,23 +175,28 @@ def ci():
             perform_video_segmentation(TEvent.objects.create(video=v, arguments=arguments).pk)
         arguments = {'index': 'inception', 'target': 'frames'}
         perform_indexing(TEvent.objects.create(video=v, arguments=arguments).pk)
-        if i == 0:  # save travis time by just running detection on first video
+        if i == 1:  # save travis time by just running detection on first video
             # face_mtcnn
             arguments = {'detector': 'face'}
             dt = TEvent.objects.create(video=v, arguments=arguments)
             perform_detection(dt.pk)
+            print "done perform_detection"
             arguments = {'filters': {'event_id': dt.pk}, }
             perform_transformation(TEvent.objects.create(video=v, arguments=arguments).pk)
+            print "done perform_transformation"
             # coco_mobilenet
             arguments = {'detector': 'coco'}
             dt = TEvent.objects.create(video=v, arguments=arguments)
             perform_detection(dt.pk)
+            print "done perform_detection"
             arguments = {'filters': {'event_id': dt.pk}, }
             perform_transformation(TEvent.objects.create(video=v, arguments=arguments).pk)
+            print "done perform_transformation"
             # inception on crops from detector
             arguments = {'index': 'inception', 'target': 'regions',
                          'filters': {'event_id': dt.pk, 'w__gte': 50, 'h__gte': 50}}
             perform_indexing(TEvent.objects.create(video=v, arguments=arguments).pk)
+            print "done perform_indexing"
             # assign_open_images_text_tags_by_id(TEvent.objects.create(video=v).pk)
         temp = TEvent.objects.create(video=v, arguments={'destination': "FILE"})
         perform_export(temp.pk)
@@ -222,7 +223,7 @@ def ci():
     perform_retriever_creation(clustering_task.pk)
     query_dict = {
         'process_type': DVAPQL.QUERY,
-        'image_data_b64': base64.encodestring(file('tests/query.png').read()),
+        'image_data_b64': base64.encodestring(file('tests/queries/query.png').read()),
         'tasks': [
             {
                 'operation': 'perform_indexing',
@@ -267,7 +268,7 @@ def ci_search():
     launch_workers_and_scheduler_from_environment()
     query_dict = {
         'process_type': DVAPQL.QUERY,
-        'image_data_b64': base64.encodestring(file('tests/query.png').read()),
+        'image_data_b64': base64.encodestring(file('tests/queries/query.png').read()),
         'tasks': [
             {
                 'operation': 'perform_indexing',
@@ -359,6 +360,10 @@ def launch():
               'LAUNCH_Q_qclusterer', 'LAUNCH_Q_qextract','LAUNCH_SCHEDULER']
     for k in envars:
         os.environ[k] = "1"
+    if sys.platform == 'darwin':
+        os.environ['MEDIA_BUCKET'] = 'aub3dvatest'
+        os.environ['DISABLE_NFS'] = '1'
+
     launch_workers_and_scheduler_from_environment(False)
 
 
@@ -530,17 +535,27 @@ def download_model(root_dir, model_type_dir_name, model_dir_name, model_json):
             except:
                 pass
             else: # On the shared FS the which creates the DIR gets to download
+<<<<<<< HEAD
                 if True : # sys.platform == 'darwin':
                     local("cd {} && cp /home/tom/ai/DeepVideoAnalytics.shared/models/{} .".format(model_dir_name, filename))
+=======
+                if sys.platform == 'darwin':
+                    local("cd {} && cp /users/aub3/DeepVideoAnalytics/shared/{} .".format(model_dir_name, filename))
+>>>>>>> origin/master
                 else:
                     local("cd {} && wget --quiet {}".format(model_dir_name, url))
                 if 'additional_files' in model_json:
                     for m in model_json["additional_files"]:
                         url = m['url']
                         filename = m['filename']
+<<<<<<< HEAD
                         if True : #sys.platform == 'darwin':
                             local("cd {} && cp /home/tom/ai/DeepVideoAnalytics.shared/models/{} .".format(model_dir_name,
                                                                                                           filename))
+=======
+                        if sys.platform == 'darwin':
+                            local("cd {} && cp /users/aub3/DeepVideoAnalytics/shared/{} .".format(model_dir_name,filename))
+>>>>>>> origin/master
                         else:
                             local("cd {} && wget --quiet {}".format(model_dir_name, url))
 # >>>>>>> origin/master
@@ -650,11 +665,11 @@ def test():
     django.setup()
     from django.core.files.uploadedfile import SimpleUploadedFile
     from dvaui.view_shared import handle_uploaded_file, handle_video_url
-    for fname in glob.glob('tests/*.mp4'):
+    for fname in glob.glob('tests/ci/*.mp4'):
         name = fname.split('/')[-1].split('.')[0]
         f = SimpleUploadedFile(fname, file(fname).read(), content_type="video/mp4")
         handle_uploaded_file(f, name)
-    for fname in glob.glob('tests/*.zip'):
+    for fname in glob.glob('tests/ci/*.zip'):
         name = fname.split('/')[-1].split('.')[0]
         f = SimpleUploadedFile(fname, file(fname).read(), content_type="application/zip")
         handle_uploaded_file(f, name)
@@ -849,11 +864,12 @@ def qt():
         name = fname.split('/')[-1].split('.')[0]
         f = SimpleUploadedFile(fname, file(fname).read(), content_type="application/mp4")
         _ = handle_uploaded_file(f, name)
-    for fname in glob.glob('tests/example*.zip'):
+        break
+    for fname in glob.glob('tests/ci/example*.zip'):
         name = fname.split('/')[-1].split('.')[0]
         f = SimpleUploadedFile(fname, file(fname).read(), content_type="application/zip")
         _ = handle_uploaded_file(f, name)
-
+        break
 
 @task
 def qt_lopq():
@@ -965,3 +981,8 @@ def capture_stream(url="https://www.youtube.com/watch?v=vpm16w3ik0g"):
             "This code uses os.system and is a huge security risk if url is malicious shell string. Type yes to confirm>>") == "yes":
         print command
         os.system(command)
+
+
+@task
+def clear_test_bucket():
+    local('aws s3 rm --recursive s3://aub3dvatest')

@@ -48,9 +48,9 @@ else:
     DEBUG = True
 
 if sys.platform == 'darwin':
-    MACOS = True
+    DEV_ENV = True
 else:
-    MACOS = False
+    DEV_ENV = False
 
 if HEROKU_DEPLOY:
     ALLOWED_HOSTS = [k.strip() for k in os.environ['ALLOWED_HOSTS'].split(',') if k.strip()]
@@ -89,7 +89,7 @@ INSTALLED_APPS = [
                      'crispy_forms',
                      'rest_framework.authtoken',
                      'django_celery_beat'
-                 ] + (['dvap', ] if DVA_PRIVATE_ENABLE else [])+ (['debug_toolbar'] if MACOS and DEBUG else [])
+                 ] + (['dvap', ] if DVA_PRIVATE_ENABLE else [])+ (['debug_toolbar'] if DEV_ENV and DEBUG else [])
 
 
 MIDDLEWARE_CLASSES = [
@@ -104,7 +104,7 @@ MIDDLEWARE_CLASSES = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-if MACOS and DEBUG:
+if DEV_ENV and DEBUG:
     MIDDLEWARE_CLASSES = ['debug_toolbar.middleware.DebugToolbarMiddleware',] +MIDDLEWARE_CLASSES
 CORS_ORIGIN_ALLOW_ALL = True
 CORS_ALLOW_METHODS = ('POST', 'GET',)
@@ -151,7 +151,7 @@ if HEROKU_DEPLOY:
     db_from_env = dj_database_url.config(conn_max_age=500)
     DATABASES['default'] = db_from_env
     BROKER_URL = os.environ['CLOUDAMQP_URL']
-elif sys.platform == 'darwin':
+elif DEV_ENV:
     BROKER_URL = 'amqp://{}:{}@localhost//'.format('dvauser', 'localpass')
     DATABASES = {
         'default': {
@@ -239,7 +239,7 @@ if HEROKU_DEPLOY:
     MEDIA_ROOT = '/tmp/'
 else:
     STATIC_URL = '/static/'
-    MEDIA_ROOT = '/Users/aub3/media/' if sys.platform == 'darwin' else os.path.join(PROJECT_ROOT, 'media')
+    MEDIA_ROOT = '/Users/aub3/media/' if DEV_ENV else os.path.join(PROJECT_ROOT, 'media')
     MEDIA_URL = '/media/'
 
 DATA_UPLOAD_MAX_MEMORY_SIZE = 26214400
