@@ -229,7 +229,9 @@ class FaceDetector():
 
     def crop(self, image):
         aligned = []
-        bounding_boxes, _=  detect_face.detect_face(image, self.minsize, self.pnet, self.rnet, self.onet, self.threshold, self.factor)
+        points = []
+
+        bounding_boxes, points_out=  detect_face.detect_face(image, self.minsize, self.pnet, self.rnet, self.onet, self.threshold, self.factor)
 
         img_size = np.asarray(image.shape)[0:2]
         nrof_faces = bounding_boxes.shape[0]
@@ -237,22 +239,28 @@ class FaceDetector():
             det_all = bounding_boxes[:, 0:4]
             for boxindex in range(nrof_faces):
                 det = np.squeeze(det_all[boxindex, :])
-                print(det)
                 bb = np.zeros(4, dtype=np.int32)
                 bb[0] = np.maximum(det[0] - self.margin / 2, 0)
                 bb[1] = np.maximum(det[1] - self.margin / 2, 0)
                 bb[2] = np.minimum(det[2] + self.margin / 2, img_size[1])
                 bb[3] = np.minimum(det[3] + self.margin / 2, img_size[0])
-                print(bb)
                 left, top, right, bottom = bb[0], bb[1], bb[2], bb[3]
                 if len(image.shape) == 2 :
                     aligned.append(image[top:bottom, left:right])
+                    #points.append()
                 elif len(image.shape) == 3:
                     aligned.append(image[top:bottom, left:right,:])
                 else:
                     pass
 
-        return aligned
+                points.append({"xs":np.squeeze(points_out[5:10,boxindex])-top, "ys":np.squeeze(points_out[0:5,boxindex])-left})
+
+        #points = points_out
+
+        return aligned, points
+
+    def align(self, img, imgSize):
+        pass
 
 
 class TextBoxDetector():
