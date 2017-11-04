@@ -535,30 +535,30 @@ def download_model(root_dir, model_type_dir_name, model_dir_name, model_json):
             except:
                 pass
             else: # On the shared FS the which creates the DIR gets to download
-<<<<<<< HEAD
+
                 if True : # sys.platform == 'darwin':
                     local("cd {} && cp /home/tom/ai/DeepVideoAnalytics.shared/models/{} .".format(model_dir_name, filename))
-=======
-                if sys.platform == 'darwin':
-                    local("cd {} && cp /users/aub3/DeepVideoAnalytics/shared/{} .".format(model_dir_name, filename))
->>>>>>> origin/master
+
+#                if sys.platform == 'darwin':
+#                    local("cd {} && cp /users/aub3/DeepVideoAnalytics/shared/{} .".format(model_dir_name, filename))
+
                 else:
                     local("cd {} && wget --quiet {}".format(model_dir_name, url))
                 if 'additional_files' in model_json:
                     for m in model_json["additional_files"]:
                         url = m['url']
                         filename = m['filename']
-<<<<<<< HEAD
+
                         if True : #sys.platform == 'darwin':
                             local("cd {} && cp /home/tom/ai/DeepVideoAnalytics.shared/models/{} .".format(model_dir_name,
                                                                                                           filename))
-=======
-                        if sys.platform == 'darwin':
-                            local("cd {} && cp /users/aub3/DeepVideoAnalytics/shared/{} .".format(model_dir_name,filename))
->>>>>>> origin/master
+
+#                        if sys.platform == 'darwin':
+#                            local("cd {} && cp /users/aub3/DeepVideoAnalytics/shared/{} .".format(model_dir_name,filename))
+
                         else:
                             local("cd {} && wget --quiet {}".format(model_dir_name, url))
-# >>>>>>> origin/master
+
 
 
 @task
