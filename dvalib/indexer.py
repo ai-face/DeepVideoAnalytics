@@ -4,19 +4,19 @@ import numpy as np
 import time
 from collections import namedtuple
 
-if os.environ.get('PYTORCH_MODE',False):
-    pass
-elif os.environ.get('CAFFE_MODE',False):
-    import cv2, caffe
-    tf = None
-    logging.info("Using Caffe only mode")
-else:
-    try:
-        from tensorflow.python.platform import gfile
-        from facenet import facenet
-        import tensorflow as tf
-    except ImportError:
-        logging.warning("Could not import Tensorflow assuming operating in either frontend or caffe/pytorch mode")
+# if os.environ.get('PYTORCH_MODE',False):
+#     pass
+# elif os.environ.get('CAFFE_MODE',False):
+#     import cv2, caffe
+#     tf = None
+#     logging.info("Using Caffe only mode")
+# else:
+    #try:
+from tensorflow.python.platform import gfile
+from .facenet import facenet
+import tensorflow as tf
+    #except ImportError:
+    #    logging.warning("Could not import Tensorflow assuming operating in either frontend or caffe/pytorch mode")
 
 
 IndexRange = namedtuple('IndexRange',['start','end'])
